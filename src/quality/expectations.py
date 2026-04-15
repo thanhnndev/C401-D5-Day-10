@@ -112,5 +112,30 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
         )
     )
 
+    # E7: Cảnh báo nếu có chunk_text chứa từ 'BOM' (chống lỗi encoding hoặc dữ liệu lỗi)
+    bom_chunks = [r for r in cleaned_rows if 'bom' in (r.get('chunk_text') or '').lower()]
+    ok7 = len(bom_chunks) == 0
+    results.append(
+        ExpectationResult(
+            "no_bom_in_chunk_text",
+            ok7,
+            "warn",
+            f"bom_chunks={len(bom_chunks)}",
+        )
+    )
+
+    # E8: Dừng pipeline nếu có doc_id trùng nhau (mỗi doc_id chỉ nên xuất hiện 1 lần sau clean)
+    doc_ids = [r.get('doc_id') for r in cleaned_rows]
+    duplicate_doc_ids = set([x for x in doc_ids if doc_ids.count(x) > 1])
+    ok8 = len(duplicate_doc_ids) == 0
+    results.append(
+        ExpectationResult(
+            "no_duplicate_doc_id",
+            ok8,
+            "halt",
+            f"duplicate_doc_ids={list(duplicate_doc_ids)}",
+        )
+    )
+
     halt = any(not r.passed and r.severity == "halt" for r in results)
     return results, halt
