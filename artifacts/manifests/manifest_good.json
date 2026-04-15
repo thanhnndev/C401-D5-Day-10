@@ -1,14 +1,14 @@
 {
-  "run_id": "inject-bad",
-  "run_timestamp": "2026-04-15T09:53:20.487629+00:00",
+  "run_id": "good",
+  "run_timestamp": "2026-04-15T09:58:08.333666+00:00",
   "raw_path": "data/raw/policy_export_dirty.csv",
   "raw_records": 20,
   "cleaned_records": 10,
   "quarantine_records": 10,
   "latest_exported_at": "2026-04-10T08:00:00",
-  "no_refund_fix": true,
-  "skipped_validate": true,
-  "cleaned_csv": "artifacts/cleaned/cleaned_inject-bad.csv",
+  "no_refund_fix": false,
+  "skipped_validate": false,
+  "cleaned_csv": "artifacts/cleaned/cleaned_good.csv",
   "chroma_path": "./chroma_db",
   "chroma_collection": "day10_kb"
 }

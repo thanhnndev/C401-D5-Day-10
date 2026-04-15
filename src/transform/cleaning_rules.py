@@ -163,11 +163,11 @@ def clean_rows(
                 fixed_text = fixed_text.replace("14 ngày làm việc", "7 ngày làm việc")
                 fixed_text += " [cleaned: stale_refund_window]"
 
-        # Rule 8: Fix stale P1 SLA (4h -> 2h)
-        if doc_id == "sla_p1_2026":
-            if "4 giờ" in fixed_text:
-                fixed_text = fixed_text.replace("4 giờ", "2 giờ")
-                fixed_text += " [cleaned: stale_sla_p1]"
+        # # Rule 8: Fix stale P1 SLA (4h -> 2h)
+        # if doc_id == "sla_p1_2026":
+        #     if "4 giờ" in fixed_text:
+        #         fixed_text = fixed_text.replace("4 giờ", "2 giờ")
+        #         fixed_text += " [cleaned: stale_sla_p1]"
 
         # Rule 9: IT FAQ Prefix (Case-insensitive check)
         if doc_id == "it_helpdesk_faq":

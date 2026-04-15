@@ -6,6 +6,6 @@ hr_leave_policy_4_31581e00a638ac0d,hr_leave_policy,Nhân viên dưới 3 năm ki
 it_helpdesk_faq_5_02ad0cca583e81f2,it_helpdesk_faq,IT FAQ: FAQ bổ sung: đổi mật khẩu qua portal self-service có thể mất tối đa 24 giờ để đồng bộ toàn hệ thống.,2026-02-01,2026-04-10T08:00:00
 it_helpdesk_faq_6_340e036517864772,it_helpdesk_faq,IT FAQ: Vui lòng liên hệ hỗ trợ tại [REDACTED_EMAIL] nếu gặp sự cố.,2026-02-01,2026-04-10T08:00:00
 policy_refund_v4_7_87dc322ee4de7f67,policy_refund_v4,"""Chính sách hoàn tiền mới"" áp dụng cho tất cả đơn hàng từ 2026.",2026-02-01,2026-04-10T08:00:00
-policy_refund_v4_8_7fab1ee922e8ff52,policy_refund_v4,Chính sách 14 ngày làm việc cần được fix tự động.,2026-02-01,2026-04-10T08:00:00
+policy_refund_v4_8_9199e05cd55eef6f,policy_refund_v4,Chính sách 7 ngày làm việc cần được fix tự động. [cleaned: stale_refund_window],2026-02-01,2026-04-10T08:00:00
 sla_p1_2026_9_22c3613245ec0bca,sla_p1_2026,Resolution 2 giờ cần được fix sang 2 giờ. [cleaned: stale_sla_p1],2026-02-01,2026-04-10T08:00:00
 it_helpdesk_faq_10_19e8abbf8b4c6c4f,it_helpdesk_faq,IT FAQ: Liên hệ [REDACTED_EMAIL] để được trợ giúp.,2026-02-01,2026-04-10T08:00:00
