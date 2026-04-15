@@ -25,7 +25,16 @@ Tôi đảm nhận vai trò **Monitoring / Docs Owner** và **quản lý source 
 - Check và hỗ trợ các vấn đề lặt vặt: setup môi trường (`pip install -r requirements.txt`), debug lỗi import, kiểm tra artifact trước khi nộp.
 - Học hỏi từ các thành viên khác về cleaning rules (Hồ Sỹ Minh Hà), embed idempotency, và grading JSONL.
 
-**Bằng chứng:** Các file docs trong `docs/` đều có commit history, nội dung khớp với code thực tế trong `src/etl_pipeline.py`, `src/transform/cleaning_rules.py`, `src/quality/expectations.py`.
+**Bằng chứng (commit history):**
+
+| Commit | File thay đổi | Mô tả |
+|--------|---------------|-------|
+| `f29c75f` | `README.md` | Refactor cấu trúc thư mục, di chuyển code vào `src/`, cập nhật hướng dẫn chạy pipeline |
+| `947fbc7` | `docs/pipeline_architecture.md` (+95 dòng), `docs/data_contract.md` (+78), `docs/runbook.md` (+71), `docs/quality_report.md` (mới 121 dòng), `reports/group_report.md` | Điền bằng chứng artifact thực tế: sơ đồ Mermaid, schema 5 cột, 8 quarantine reason codes, before/after eval (1/4→4/4), inject evidence, freshness FAIL analysis |
+| `4a6df02` | `docs/data_contract.md` (+29), `docs/runbook.md` (+4) | Sync contract YAML → docs: owner_team, quarantine_policy (8 rules), ownership mapping (4 roles), xóa TODO placeholders |
+| `f2e7996` | `reports/individual/nong_nguyen_thanh.md` (+97), `reports/individual/template.md` (+41) | Viết báo cáo cá nhân và template tham khảo |
+
+Nội dung docs khớp với code thực tế trong `src/etl_pipeline.py`, `src/transform/cleaning_rules.py`, `src/quality/expectations.py`.
 
 ---
 
