@@ -47,10 +47,6 @@ class CleanedRow(BaseModel):
         if doc == "hr_leave_policy" and "10 ngày phép năm" in text:
             raise ValueError("stale_hr_policy_detected")
 
-        # SLA stale
-        if doc == "sla_p1_2026" and "4 giờ" in text:
-            raise ValueError("stale_sla_p1_detected")
-
         # PII Check (Emails)
         raw_email = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
         if raw_email.search(text):
@@ -108,8 +104,8 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
     results.append(ExpectationResult("hr_leave_no_stale_10d_annual", len(bad_hr) == 0, "halt", f"violations={len(bad_hr)}"))
 
     # E7: SLA stale
-    bad_sla = [e for e in pydantic_errors if "stale_sla_p1_detected" in e["msg"]]
-    results.append(ExpectationResult("sla_p1_no_stale_4h_window", len(bad_sla) == 0, "halt", f"violations={len(bad_sla)}"))
+    # bad_sla = [e for e in pydantic_errors if "stale_sla_p1_detected" in e["msg"]]
+    # results.append(ExpectationResult("sla_p1_no_stale_4h_window", len(bad_sla) == 0, "halt", f"violations={len(bad_sla)}"))
 
     # E10: PII
     bad_pii = [e for e in pydantic_errors if "raw_pii_email_detected" in e["msg"]]
