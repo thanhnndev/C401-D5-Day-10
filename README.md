@@ -33,34 +33,36 @@ Vector store và agent Day 09 chỉ ổn nếu **pipeline ingest → clean → v
 ## Cấu trúc thư mục
 
 ```
-lab/
-├── etl_pipeline.py           # Sprint 1–2: run ingest→clean→validate→embed
-├── eval_retrieval.py         # Sprint 3–4: before/after retrieval (CSV)
-├── grading_run.py            # JSONL cho câu grading (public muộn — xem SCORING)
-├── instructor_quick_check.py # GV: sanity artifact grading/manifest (tuỳ chọn)
-│
-├── transform/
-│   └── cleaning_rules.py     # Baseline rules — sinh viên mở rộng
-├── quality/
-│   └── expectations.py       # Baseline expectations — sinh viên mở rộng
-├── monitoring/
-│   └── freshness_check.py    # Đọc manifest + SLA đơn giản
+C401-D5-Day-10/
+├── src/
+│   ├── etl_pipeline.py                 # Entry-point chính: ingest -> clean -> validate -> embed
+│   ├── eval_retrieval.py               # Chạy eval before/after retrieval
+│   ├── grading_run.py                  # Sinh JSONL phục vụ grading
+│   ├── instructor_quick_check.py       # Script kiểm tra nhanh cho giảng viên
+│   ├── transform/
+│   │   ├── __init__.py
+│   │   └── cleaning_rules.py           # Các luật làm sạch dữ liệu
+│   ├── quality/
+│   │   ├── __init__.py
+│   │   └── expectations.py             # Bộ expectation/validation
+│   └── monitoring/
+│       ├── __init__.py
+│       └── freshness_check.py          # Kiểm tra freshness từ manifest
 │
 ├── contracts/
-│   └── data_contract.yaml    # Contract dữ liệu — điền owner/SLA
+│   └── data_contract.yaml              # Data contract (owner/SLA/nguồn)
 │
 ├── data/
-│   ├── docs/                 # 5 tài liệu (kế thừa nội dung Day 09 / policy)
+│   ├── docs/                           # Tập tài liệu policy đầu vào
 │   ├── raw/
-│   │   └── policy_export_dirty.csv   # Export bẩn mẫu
-│   ├── test_questions.json           # Golden retrieval (3 câu)
-│   └── grading_questions.json        # 2 câu chấm (keyword-based)
+│   │   └── policy_export_dirty.csv     # Dữ liệu export bẩn mẫu
+│   └── test_questions.json             # Bộ câu hỏi golden cho retrieval
 │
-├── artifacts/                # Không commit chroma_db; commit được log/manifest/eval mẫu
-│   ├── logs/
-│   ├── manifests/
-│   ├── quarantine/
-│   └── eval/
+├── artifacts/
+│   ├── cleaned/                        # Dữ liệu sau làm sạch
+│   ├── manifests/                      # Manifest theo từng run_id
+│   ├── quarantine/                     # Dòng bị loại/quarantine
+│   └── eval/                           # Kết quả eval (before/after, grading)
 │
 ├── docs/
 │   ├── pipeline_architecture.md
@@ -73,6 +75,8 @@ lab/
 │   └── individual/
 │       └── template.md
 │
+├── README.md
+├── SCORING.md
 ├── requirements.txt
 └── .env.example
 ```
@@ -82,7 +86,7 @@ lab/
 ## Setup
 
 ```bash
-cd lab
+cd C401-D5-Day-10
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -97,16 +101,16 @@ cp .env.example .env
 
 ```bash
 # Luồng chuẩn: fix stale refund 14→7, expectation pass, embed
-python etl_pipeline.py run
+python src/etl_pipeline.py run
 
 # Kiểm tra freshness theo manifest vừa tạo
-python etl_pipeline.py freshness --manifest artifacts/manifests/manifest_<run-id>.json
+python src/etl_pipeline.py freshness --manifest artifacts/manifests/manifest_<run-id>.json
 ```
 
 **Eval retrieval (sau khi đã embed):**
 
 ```bash
-python eval_retrieval.py --out artifacts/eval/before_after_eval.csv
+python src/eval_retrieval.py --out artifacts/eval/before_after_eval.csv
 cat artifacts/eval/before_after_eval.csv
 ```
 
@@ -116,22 +120,22 @@ cat artifacts/eval/before_after_eval.csv
 **Sprint 3 — inject có chủ đích (embed dữ liệu “xấu”, bỏ qua halt):**
 
 ```bash
-python etl_pipeline.py run --run-id inject-bad --no-refund-fix --skip-validate
-python eval_retrieval.py --out artifacts/eval/after_inject_bad.csv
+python src/etl_pipeline.py run --run-id inject-bad --no-refund-fix --skip-validate
+python src/eval_retrieval.py --out artifacts/eval/after_inject_bad.csv
 # So sánh với file eval sau khi chạy lại pipeline chuẩn (không flag inject)
 ```
 
 **Grading (sau 17:00):**
 
 ```bash
-python grading_run.py --out artifacts/eval/grading_run.jsonl
+python src/grading_run.py --out artifacts/eval/grading_run.jsonl
 ```
 
 **Giảng viên — kiểm tra nhanh artifact (tuỳ chọn):**
 
 ```bash
-python instructor_quick_check.py --grading artifacts/eval/grading_run.jsonl
-python instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id>.json
+python src/instructor_quick_check.py --grading artifacts/eval/grading_run.jsonl
+python src/instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id>.json
 ```
 
 ---
@@ -142,7 +146,7 @@ python instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id
 
 - Đọc `data/raw/policy_export_dirty.csv` (hoặc bản raw nhóm tự tạo thêm).
 - Điền **source map** ngắn trong `docs/data_contract.md` (ít nhất 2 nguồn / failure mode / metric).
-- Chạy `python etl_pipeline.py run --run-id sprint1` và lưu log.
+- Chạy `python src/etl_pipeline.py run --run-id sprint1` và lưu log.
 
 **DoD:** Log có `raw_records`, `cleaned_records`, `quarantine_records`, `run_id`.
 
@@ -154,7 +158,7 @@ python instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id
 - **Chống trivial:** mỗi rule/expectation mới phải có **tác động đo được** trên bộ mẫu hoặc trên inject (ghi trong `reports/group_report.md` bảng *metric_impact*: ví dụ `quarantine_records` tăng khi inject BOM, `expectation X fail` trước khi fix, v.v.). Rule chỉ “strip space” mà không đổi số liệu / không có kịch bản chứng minh → **trừ theo SCORING**.
 - Đảm bảo embed **idempotent** (upsert `chunk_id` + prune id thừa sau publish — baseline đã làm).
 
-**DoD:** `python etl_pipeline.py run` **exit 0** với expectation không halt (trừ khi demo có chủ đích).
+**DoD:** `python src/etl_pipeline.py run` **exit 0** với expectation không halt (trừ khi demo có chủ đích).
 
 ---
 
@@ -171,7 +175,7 @@ python instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id
 ### Sprint 4 (60') — Monitoring + docs + báo cáo
 
 - Điền `docs/pipeline_architecture.md`, `docs/data_contract.md`, `docs/runbook.md`.
-- `python etl_pipeline.py freshness --manifest …` — giải thích PASS/WARN/FAIL trong runbook.
+- `python src/etl_pipeline.py freshness --manifest …` — giải thích PASS/WARN/FAIL trong runbook.
 - Hoàn thành `reports/group_report.md` + mỗi người `reports/individual/[ten].md`.
 
 **DoD:** README nhóm có “một lệnh chạy cả pipeline”; peer review 3 câu hỏi (slide Phần E) được ghi trong group report hoặc runbook.
@@ -182,7 +186,7 @@ python instructor_quick_check.py --manifest artifacts/manifests/manifest_<run-id
 
 | Item | Ghi chú |
 |------|---------|
-| `etl_pipeline.py` + `transform/` + `quality/` + `monitoring/` | Có thể mở rộng file, không xóa entrypoint bắt buộc |
+| `src/etl_pipeline.py` + `src/transform/` + `src/quality/` + `src/monitoring/` | Có thể mở rộng file, không xóa entrypoint bắt buộc |
 | `contracts/data_contract.yaml` | Điền owner, SLA, nguồn |
 | `artifacts/logs/`, `manifests/`, `quarantine/`, `eval/` | Ít nhất 1 run “tốt” + evidence inject |
 | `docs/*.md` (3 file + quality report) | Theo template |
