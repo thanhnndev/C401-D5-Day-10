@@ -164,6 +164,27 @@ def clean_rows(
                 )
                 fixed_text += " [cleaned: stale_refund_window]"
 
+        # Rule 7: Normalize whitespace
+        fixed_text = re.sub(r'\s+', ' ', fixed_text).strip()
+
+        # Rule 8: Fix stale P1 SLA
+        if doc_id == "sla_p1_2026":
+            if "4 giờ" in fixed_text:
+                fixed_text = fixed_text.replace("4 giờ", "2 giờ")
+                fixed_text += " [cleaned: update_sla_p1]"
+
+        # Rule 9: IT FAQ Prefix
+        if doc_id == "it_helpdesk_faq":
+            if not fixed_text.startswith("IT FAQ: "):
+                fixed_text = f"IT FAQ: {fixed_text}"
+
+        # Rule 10: Normalize special characters
+        fixed_text = fixed_text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+
+        # Rule 11: Remove PII (Emails)
+        if "@" in fixed_text:
+            fixed_text = re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '[EMAIL_REMOVED]', fixed_text)
+
         seq += 1
         cleaned.append(
             {
