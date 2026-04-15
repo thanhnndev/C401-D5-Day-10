@@ -186,25 +186,131 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
         )
     )
 
-    # E12: Đảm bảo các facts quan trọng không bị mất mát trong quá trình chunking
-    sla_chunks = [r for r in cleaned_rows if r.get("doc_id") == "sla_p1_2026"]
-    has_15_mins = any("15 phút" in (r.get("chunk_text") or "").lower() for r in sla_chunks)
+    # # E12: Đảm bảo các facts quan trọng không bị mất mát trong quá trình chunking
+    # sla_chunks = [r for r in cleaned_rows if r.get("doc_id") == "sla_p1_2026"]
+    # has_15_mins = any("15 phút" in (r.get("chunk_text") or "").lower() for r in sla_chunks)
     
-    faq_chunks = [r for r in cleaned_rows if r.get("doc_id") == "it_helpdesk_faq"]
-    has_5_fails = any("5 lần" in (r.get("chunk_text") or "").lower() for r in faq_chunks)
+    # faq_chunks = [r for r in cleaned_rows if r.get("doc_id") == "it_helpdesk_faq"]
+    # has_5_fails = any("5 lần" in (r.get("chunk_text") or "").lower() for r in faq_chunks)
     
-    leave_chunks = [r for r in cleaned_rows if r.get("doc_id") == "hr_leave_policy"]
-    has_12_days = any("12 ngày" in (r.get("chunk_text") or "").lower() for r in leave_chunks)
+    # leave_chunks = [r for r in cleaned_rows if r.get("doc_id") == "hr_leave_policy"]
+    # has_12_days = any("12 ngày" in (r.get("chunk_text") or "").lower() for r in leave_chunks)
+
+    # failed_facts = []
+    # # Chỉ cảnh báo fact mất nếu document đó có tồn tại
+    # if sla_chunks and not has_15_mins:
+    #     failed_facts.append("Missing '15 phút' in sla_p1_2026")
+    # if faq_chunks and not has_5_fails:
+    #     failed_facts.append("Missing '5 lần' in it_helpdesk_faq")
+    # if leave_chunks and not has_12_days:
+    #     failed_facts.append("Missing '12 ngày' in hr_leave_policy")
+        
+    # ok12 = len(failed_facts) == 0
+    # results.append(
+    #     ExpectationResult(
+    #         "critical_facts_intact",
+    #         ok12,
+    #         "halt",
+    #         f"failed_facts={failed_facts}",
+    #     )
+    # )
+
+    # -------------------------------------------------------------------------
+    # E12: Đảm bảo các Facts quan trọng (Số liệu định lượng) không bị mất mát
+    # Sử dụng Pattern Builder tự động sinh Regex cho các form: x ngày, x-y giờ, x%...
+    # -------------------------------------------------------------------------
+    
+    def build_fact_pattern(value: str, unit: str) -> str:
+        """
+        Hàm tạo Regex chuẩn xác cho các định dạng số liệu.
+        - value: "15" (số fix), "x" (số bất kỳ), "2-4" (khoảng fix), "x-y" (khoảng bất kỳ)
+        - unit: "ngày", "tuần", "tháng", "năm", "giờ", "phút", "%", "ngày/năm", ...
+        """
+        num_regex = r"\d+(?:[.,]\d+)?"  # Bắt số nguyên hoặc số thập phân (vd: 1.5, 10)
+        
+        if value == "x":
+            v_pattern = num_regex
+        elif value == "x-y":
+            v_pattern = rf"{num_regex}\s*-\s*{num_regex}"
+        elif "-" in value and "x" not in value:
+            # Khoảng fix cứng (VD: "2-4" -> "2 - 4")
+            parts = value.split("-")
+            v_pattern = rf"{parts[0].strip()}\s*-\s*{parts[1].strip()}"
+        else:
+            v_pattern = str(value)
+
+        # Escape đơn vị để an toàn với các ký tự đặc biệt như / hoặc %
+        u_pattern = re.escape(unit)
+        
+        # \b đảm bảo ranh giới từ, tránh bắt nhầm (vd: bắt "15" không bắt nhầm trong "150")
+        return rf"\b{v_pattern}\s*{u_pattern}"
+
+    # Cấu hình Expectation E12 dựa trên Data Catalog thực tế
+    FACT_RULES = {
+        "sla_p1_2026": [
+            build_fact_pattern("15", "phút"),      # Phản hồi P1
+            build_fact_pattern("4", "giờ"),        # Xử lý P1
+            build_fact_pattern("10", "phút"),      # Escalate P1
+            build_fact_pattern("30", "phút"),      # Update P1
+            build_fact_pattern("2", "giờ"),        # Phản hồi P2
+            build_fact_pattern("1", "ngày"),       # Xử lý P2 & P3
+            build_fact_pattern("90", "phút"),      # Escalate P2
+            build_fact_pattern("5", "ngày"),       # Xử lý P3
+            build_fact_pattern("3", "ngày"),       # Phản hồi P4
+            build_fact_pattern("2-4", "tuần"),     # Xử lý P4
+            build_fact_pattern("24", "giờ"),       # Incident report
+        ],
+        "hr_leave_policy": [
+            build_fact_pattern("12", "ngày/năm"),  # Phép < 3 năm
+            build_fact_pattern("15", "ngày/năm"),  # Phép 3-5 năm
+            build_fact_pattern("18", "ngày/năm"),  # Phép > 5 năm
+            build_fact_pattern("10", "ngày/năm"),  # Nghỉ ốm
+            build_fact_pattern("3", "ngày"),       # Xin nghỉ trước 3 ngày / ốm 3 ngày
+            build_fact_pattern("5", "ngày"),       # Chuyển phép năm sau
+            build_fact_pattern("6", "tháng"),      # Nghỉ sinh con
+            build_fact_pattern("1", "tiếng/ngày"), # Nghỉ nuôi con
+            build_fact_pattern("12", "tháng"),     # Thời gian nuôi con
+            build_fact_pattern("150", "%"),        # OT thường
+            build_fact_pattern("200", "%"),        # OT cuối tuần
+            build_fact_pattern("300", "%"),        # OT lễ
+            build_fact_pattern("2", "ngày/tuần"),  # Remote work
+        ],
+        "it_helpdesk_faq": [
+            build_fact_pattern("5", "lần"),        # Khóa tài khoản
+            build_fact_pattern("5", "phút"),       # Gửi mật khẩu mới
+            build_fact_pattern("90", "ngày"),      # Hạn mật khẩu
+            build_fact_pattern("7", "ngày"),       # Nhắc đổi mật khẩu
+            build_fact_pattern("30", "ngày"),      # Nhắc license
+            build_fact_pattern("2", "thiết bị"),   # VPN
+            build_fact_pattern("50", "GB"),        # Dung lượng mail
+        ],
+        "policy_refund_v4": [
+            build_fact_pattern("7", "ngày"),       # Yêu cầu hoàn tiền
+            build_fact_pattern("1", "ngày"),       # CS xem xét
+            build_fact_pattern("3-5", "ngày"),     # Finance xử lý
+            build_fact_pattern("100", "%"),        # Hoàn tiền gốc
+            build_fact_pattern("110", "%"),        # Hoàn store credit
+        ]
+    }
 
     failed_facts = []
-    # Chỉ cảnh báo fact mất nếu document đó có tồn tại
-    if sla_chunks and not has_15_mins:
-        failed_facts.append("Missing '15 phút' in sla_p1_2026")
-    if faq_chunks and not has_5_fails:
-        failed_facts.append("Missing '5 lần' in it_helpdesk_faq")
-    if leave_chunks and not has_12_days:
-        failed_facts.append("Missing '12 ngày' in hr_leave_policy")
+
+    # Quét tất cả rule trên dữ liệu chunk
+    for doc_id, patterns in FACT_RULES.items():
+        # Tìm tất cả text của doc_id này (nếu doc bị drop, E11 đã bắt lỗi rồi nên ta có thể bỏ qua an toàn)
+        doc_chunks = [r.get("chunk_text") or "" for r in cleaned_rows if r.get("doc_id") == doc_id]
+        if not doc_chunks:
+            continue  
+            
+        # Gộp toàn bộ chunk của một doc lại để check. 
+        # Điều này giúp bắt được fact ngay cả khi parser vô tình cắt chunk ngay giữa câu.
+        full_text = " ".join(doc_chunks).lower()
         
+        for pattern in patterns:
+            # re.IGNORECASE giúp không phân biệt chữ hoa/chữ thường (Ngày = ngày)
+            if not re.search(pattern, full_text, flags=re.IGNORECASE):
+                failed_facts.append(f"Missing pattern '{pattern}' in doc: {doc_id}")
+
     ok12 = len(failed_facts) == 0
     results.append(
         ExpectationResult(
