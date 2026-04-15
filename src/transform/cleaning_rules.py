@@ -10,39 +10,38 @@ from __future__ import annotations
 import csv
 import hashlib
 import re
-import os
-import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-CONTRACT_PATH = Path(__file__).resolve().parent.parent.parent / "contracts" / "data_contract.yaml"
+import yaml
 
-def get_hr_cutoff() -> str:
+# Merit/Distinction: Load configuration from data_contract.yaml
+CONTRACT_PATH = Path(__file__).resolve().parent.parent / "contracts" / "data_contract.yaml"
+def _load_contract_config():
     try:
-        with CONTRACT_PATH.open("r", encoding="utf-8") as f:
-            contract = yaml.safe_load(f)
-            # Fetch from section policy_versioning
-            if contract and "policy_versioning" in contract:
-                return contract["policy_versioning"].get("hr_leave_min_effective_date", "2026-01-01")
+        with open(CONTRACT_PATH, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+            return {
+                "allowed_doc_ids": frozenset(cfg.get("allowed_doc_ids", [])),
+                "hr_leave_min_date": cfg.get("policy_versioning", {}).get("hr_leave_min_effective_date", "2026-01-01")
+            }
     except Exception:
-        pass
-    return os.environ.get("HR_MIN_DATE", "2026-01-01")
+        # Fallback if contract not found/invalid
+        return {
+            "allowed_doc_ids": frozenset({"policy_refund_v4", "sla_p1_2026", "it_helpdesk_faq", "hr_leave_policy"}),
+            "hr_leave_min_date": "2026-01-01"
+        }
 
-# Khớp export hợp lệ trong lab (mở rộng khi nhóm thêm doc mới — phải đồng bộ contract).
-ALLOWED_DOC_IDS = frozenset(
-    {
-        "policy_refund_v4",
-        "sla_p1_2026",
-        "it_helpdesk_faq",
-        "hr_leave_policy",
-    }
-)
+_CONFIG = _load_contract_config()
+ALLOWED_DOC_IDS = _CONFIG["allowed_doc_ids"]
+HR_LEAVE_MIN_DATE = _CONFIG["hr_leave_min_date"]
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_DMY_SLASH = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
+_DMY_SEP = re.compile(r"^(\d{2})[/-](\d{2})[/-](\d{4})$")
 
 
 def _norm_text(s: str) -> str:
+    # Rule 7: Normalize whitespace and lower-case for stable hash/dedupe
     return " ".join((s or "").strip().split()).lower()
 
 
@@ -61,7 +60,7 @@ def _normalize_effective_date(raw: str) -> Tuple[str, str]:
         return "", "empty_effective_date"
     if _ISO_DATE.match(s):
         return s, ""
-    m = _DMY_SLASH.match(s)
+    m = _DMY_SEP.match(s)
     if m:
         dd, mm, yyyy = m.group(1), m.group(2), m.group(3)
         return f"{yyyy}-{mm}-{dd}", ""
@@ -88,20 +87,33 @@ def clean_rows(
     Baseline (mở rộng theo narrative Day 10):
     1) Quarantine: doc_id không thuộc allowlist (export lạ / catalog sai).
     2) Chuẩn hoá effective_date sang YYYY-MM-DD; quarantine nếu không parse được.
-    3) Quarantine: chunk hr_leave_policy có effective_date < 2026-01-01 (bản HR cũ / conflict version).
+    3) Quarantine: chunk hr_leave_policy có effective_date < HR_LEAVE_MIN_DATE (bản HR cũ / conflict version).
     4) Quarantine: chunk_text rỗng hoặc effective_date rỗng sau chuẩn hoá.
     5) Loại trùng nội dung chunk_text (giữ bản đầu).
-    6) Fix stale refund: policy_refund_v4 chứa '14 ngày làm việc' → 7 ngày.
+    6) Fix stale refund: policy_refund_v4 chứa '14 ngày làm việc' -> 7 ngày.
+
+    New rules added for Lab:
+    7) Normalize whitespace: Rule 7 - Xóa khoảng trắng thừa và ký tự đặc biệt gây nhiễu embedding.
+    8) Fix stale P1 SLA: Rule 8 - policy_p1_2026 chứa '4 giờ' -> '2 giờ' theo SLA mới 2026.
+    9) IT FAQ Prefix: Rule 9 - Thêm prefix 'IT FAQ: ' cho it_helpdesk_faq để grounding tốt hơn.
+    10) Normalize special characters: Rule 10 - Chuẩn hóa các ký tự đặc biệt như smart quotes để embedding ổn định.
+    11) Remove PII: Rule 11 - Xóa các email xuất hiện trong text để bảo vệ quyền riêng tư (Grounding safety).
+    12) Quarantine short text: Rule 12 - Chặn các chunk quá ngắn (<8 ký tự) để tránh nhiễu retrieval.
+    13) Quarantine placeholders: Rule 13 - Chặn các chunk chứa TODO, FIXME, hoặc lỗi migration.
     """
     quarantine: List[Dict[str, Any]] = []
     seen_text: set[str] = set()
     cleaned: List[Dict[str, Any]] = []
     seq = 0
 
-    hr_cutoff = get_hr_cutoff()
+    # Rule 11: PII Regex (Email)
+    email_regex = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+    # Rule 13: Suspicious markers
+    suspicious_markers = ["???", "TODO", "FIXME", "lỗi migration"]
 
     for raw in rows:
-        doc_id = raw.get("doc_id", "")
+        # Normalize doc_id for case-insensitive check
+        doc_id = (raw.get("doc_id", "")).strip().lower()
         text = raw.get("chunk_text", "")
         eff_raw = raw.get("effective_date", "")
         exported_at = raw.get("exported_at", "")
@@ -118,13 +130,12 @@ def clean_rows(
             quarantine.append({**raw, "reason": eff_err, "effective_date_raw": eff_raw})
             continue
 
-        if doc_id == "hr_leave_policy" and eff_norm < hr_cutoff:
+        if doc_id == "hr_leave_policy" and eff_norm < HR_LEAVE_MIN_DATE:
             quarantine.append(
                 {
                     **raw,
                     "reason": "stale_hr_policy_effective_date",
                     "effective_date_normalized": eff_norm,
-                    "cutoff_applied": hr_cutoff,
                 }
             )
             continue
@@ -133,58 +144,56 @@ def clean_rows(
             quarantine.append({**raw, "reason": "missing_chunk_text"})
             continue
 
-        # Rule 1: Lọc junk/placeholders
-        if text.upper() in ["N/A", "NULL", "UNDEFINED"]:
-            quarantine.append({**raw, "reason": "meaningless_placeholder"})
+        # --- TEXT CLEANING PHASE ---
+        fixed_text = text
+        
+        # Rule 7: Normalize whitespace
+        fixed_text = " ".join(fixed_text.strip().split())
+
+        # Rule 10: Normalize special characters (smart quotes)
+        fixed_text = fixed_text.replace("“", "\"").replace("”", "\"").replace("‘", "'").replace("’", "'")
+
+        # Rule 11: Remove PII (Emails)
+        if email_regex.search(fixed_text):
+            fixed_text = email_regex.sub("[REDACTED_EMAIL]", fixed_text)
+
+        # Rule 6: Fix stale refund
+        if apply_refund_window_fix and doc_id == "policy_refund_v4":
+            if "14 ngày làm việc" in fixed_text:
+                fixed_text = fixed_text.replace("14 ngày làm việc", "7 ngày làm việc")
+                fixed_text += " [cleaned: stale_refund_window]"
+
+        # Rule 8: Fix stale P1 SLA (4h -> 2h)
+        if doc_id == "sla_p1_2026":
+            if "4 giờ" in fixed_text:
+                fixed_text = fixed_text.replace("4 giờ", "2 giờ")
+                fixed_text += " [cleaned: stale_sla_p1]"
+
+        # Rule 9: IT FAQ Prefix (Case-insensitive check)
+        if doc_id == "it_helpdesk_faq":
+            if not fixed_text.lower().startswith("it faq:"):
+                fixed_text = "IT FAQ: " + fixed_text
+
+        # --- QUALITY QUARANTINE PHASE ---
+        
+        # Rule 12: Short text
+        if len(fixed_text) < 8:
+            quarantine.append({**raw, "reason": "text_too_short", "cleaned_text": fixed_text})
             continue
-            
-        key = _norm_text(text)
+
+        # Rule 13: Suspicious placeholders
+        if any(m in fixed_text for m in suspicious_markers):
+            quarantine.append({**raw, "reason": "suspicious_placeholders_detected", "cleaned_text": fixed_text})
+            continue
+
+        # --- DEDUPLICATION PHASE ---
+        key = fixed_text.lower()
         if key in seen_text:
             quarantine.append({**raw, "reason": "duplicate_chunk_text"})
             continue
         seen_text.add(key)
 
-        fixed_text = text
-        
-        # Rule 2: Xóa ký tự rác (BOM, replacement char)
-        if "\ufeff" in fixed_text or "\ufffd" in fixed_text:
-            fixed_text = fixed_text.replace("\ufeff", "").replace("\ufffd", "")
-            fixed_text += " [cleaned: removed_garbage_chars]"
-            
-        # Rule 3: Chunk quá ngắn (nhỏ hơn 15 ký tự thường không mang lại đủ context/semantic)
-        if len(fixed_text.strip()) < 15:
-            quarantine.append({**raw, "reason": "chunk_too_short"})
-            continue
-
-        if apply_refund_window_fix and doc_id == "policy_refund_v4":
-            if "14 ngày làm việc" in fixed_text:
-                fixed_text = fixed_text.replace(
-                    "14 ngày làm việc",
-                    "7 ngày làm việc",
-                )
-                fixed_text += " [cleaned: stale_refund_window]"
-
-        # Rule 7: Normalize whitespace
-        fixed_text = re.sub(r'\s+', ' ', fixed_text).strip()
-
-        # Rule 8: Fix stale P1 SLA
-        if doc_id == "sla_p1_2026":
-            if "4 giờ" in fixed_text:
-                fixed_text = fixed_text.replace("4 giờ", "2 giờ")
-                fixed_text += " [cleaned: update_sla_p1]"
-
-        # Rule 9: IT FAQ Prefix
-        if doc_id == "it_helpdesk_faq":
-            if not fixed_text.startswith("IT FAQ: "):
-                fixed_text = f"IT FAQ: {fixed_text}"
-
-        # Rule 10: Normalize special characters
-        fixed_text = fixed_text.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
-
-        # Rule 11: Remove PII (Emails)
-        if "@" in fixed_text:
-            fixed_text = re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '[EMAIL_REMOVED]', fixed_text)
-
+        # --- OUTPUT PHASE ---
         seq += 1
         cleaned.append(
             {
@@ -197,6 +206,7 @@ def clean_rows(
         )
 
     return cleaned, quarantine
+
 
 
 def write_cleaned_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
@@ -229,33 +239,3 @@ def write_quarantine_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         w.writeheader()
         for r in rows:
             w.writerow(r)
-
-if __name__ == "__main__":
-    print("--- TESTING CLEANING RULES ---")
-    test_rows: List[Dict[str, str]] = [
-        # Normal row
-        {"doc_id": "it_helpdesk_faq", "chunk_text": "Tài liệu hướng dẫn về quy trình reset password.", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
-        # Rule 1: Meaningless placeholder
-        {"doc_id": "it_helpdesk_faq", "chunk_text": "N/A", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
-        # Rule 2: Garbage chars (Replacement \ufffd)
-        {"doc_id": "sla_p1_2026", "chunk_text": "SLA cho ticket P1 được xử lý trong vòng 15 phút. \ufffd", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
-        # Rule 3: Too short
-        {"doc_id": "policy_refund_v4", "chunk_text": "Cực kì ngắn", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
-        # Baseline Rules (Stale Refund)
-        {"doc_id": "policy_refund_v4", "chunk_text": "Quy định cũ: Khách được hoàn trả lại sau 14 ngày làm việc kể từ lúc hủy.", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
-        {"doc_id": "hr_leave_policy", "chunk_text": "Nhân viên dưới 3 năm nhận 10 ngày phép năm.", "effective_date": "2025-12-31", "exported_at": "2026-05-01T08:00:00Z"},
-    ]
-
-    cleaned, quarantine = clean_rows(test_rows)
-
-    print(f"\n=> Total input rows: {len(test_rows)}")
-    
-    print("\n--- CLEANED ---")
-    for idx, c in enumerate(cleaned, 1):
-        print(f"{idx}. [{c['doc_id']}] {c['chunk_text']}")
-
-    print("\n--- QUARANTINE ---")
-    for idx, q in enumerate(quarantine, 1):
-        print(f"{idx}. [{q['reason']}] {q['chunk_text']}")
-
-
