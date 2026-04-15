@@ -9,3 +9,13 @@ chunk_id,doc_id,chunk_text,effective_date,exported_at
 8,hr_leave_policy,"Nhân viên dưới 3 năm kinh nghiệm được 12 ngày phép năm theo chính sách 2026.",2026-02-01,2026-04-10T08:00:00
 9,legacy_catalog_xyz_zzz,"Chunk nội dung đủ dài để vượt ngưỡng expectation độ dài tối thiểu trong cleaned export.",2026-02-01,2026-04-10T08:00:00
 10,it_helpdesk_faq,"FAQ bổ sung: đổi mật khẩu qua portal self-service có thể mất tối đa 24 giờ để đồng bộ toàn hệ thống.",01/02/2026,2026-04-10T08:00:00
+11,it_helpdesk_faq,"Vui lòng liên hệ hỗ trợ tại admin@example.com nếu gặp sự cố.",2026-02-01,2026-04-10T08:00:00
+12,policy_refund_v4,"“Chính sách hoàn tiền mới” áp dụng cho tất cả đơn hàng từ 2026.",2026-02-01,2026-04-10T08:00:00
+13,,Nội dung hợp lệ nhưng thiếu doc_id.,2026-02-01,2026-04-10T08:00:00
+14,policy_refund_v4,Nội dung hợp lệ nhưng sai định dạng ngày.,2026/13/99,2026-04-10T08:00:00
+15,it_helpdesk_faq,TODO: Cần bổ sung thêm quy trình backup dữ liệu.,2026-02-01,2026-04-10T08:00:00
+16,hr_leave_policy,Ngắn.,2026-02-01,2026-04-10T08:00:00
+17,policy_refund_v4,Chính sách 14 ngày làm việc cần được fix tự động.,2026-02-01,2026-04-10T08:00:00
+18,sla_p1_2026,Resolution 4 giờ cần được fix sang 2 giờ.,2026-02-01,2026-04-10T08:00:00
+19,it_helpdesk_faq,Liên hệ support@company.com để được trợ giúp.,2026-02-01,2026-04-10T08:00:00
+20,it_helpdesk_faq,,2026-02-01,2026-04-10T08:00:00
