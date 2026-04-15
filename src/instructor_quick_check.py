@@ -101,7 +101,7 @@ def check_manifest(path: Path) -> Tuple[int, List[str]]:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Day 10 lab — quick artifact checks for instructors")
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parent.parent
     p.add_argument(
         "--grading",
         default=str(root / "artifacts" / "eval" / "grading_run.jsonl"),
