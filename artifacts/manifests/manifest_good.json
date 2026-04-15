@@ -1,6 +1,6 @@
 {
   "run_id": "good",
-  "run_timestamp": "2026-04-15T09:58:08.333666+00:00",
+  "run_timestamp": "2026-04-15T10:48:11.174929+00:00",
   "raw_path": "data/raw/policy_export_dirty.csv",
   "raw_records": 20,
   "cleaned_records": 10,

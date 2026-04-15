@@ -94,12 +94,10 @@ def clean_rows(
 
     New rules added for Lab:
     7) Normalize whitespace: Rule 7 - Xóa khoảng trắng thừa và ký tự đặc biệt gây nhiễu embedding.
-    8) Fix stale P1 SLA: Rule 8 - policy_p1_2026 chứa '4 giờ' -> '2 giờ' theo SLA mới 2026.
-    9) IT FAQ Prefix: Rule 9 - Thêm prefix 'IT FAQ: ' cho it_helpdesk_faq để grounding tốt hơn.
-    10) Normalize special characters: Rule 10 - Chuẩn hóa các ký tự đặc biệt như smart quotes để embedding ổn định.
-    11) Remove PII: Rule 11 - Xóa các email xuất hiện trong text để bảo vệ quyền riêng tư (Grounding safety).
-    12) Quarantine short text: Rule 12 - Chặn các chunk quá ngắn (<8 ký tự) để tránh nhiễu retrieval.
-    13) Quarantine placeholders: Rule 13 - Chặn các chunk chứa TODO, FIXME, hoặc lỗi migration.
+    8) Normalize special characters: Rule 10 - Chuẩn hóa các ký tự đặc biệt như smart quotes để embedding ổn định.
+    9) Remove PII: Rule 11 - Xóa các email xuất hiện trong text để bảo vệ quyền riêng tư (Grounding safety).
+    10) Quarantine short text: Rule 12 - Chặn các chunk quá ngắn (<8 ký tự) để tránh nhiễu retrieval.
+    11) Quarantine placeholders: Rule 13 - Chặn các chunk chứa TODO, FIXME, hoặc lỗi migration.
     """
     quarantine: List[Dict[str, Any]] = []
     seen_text: set[str] = set()
@@ -170,9 +168,9 @@ def clean_rows(
         #         fixed_text += " [cleaned: stale_sla_p1]"
 
         # Rule 9: IT FAQ Prefix (Case-insensitive check)
-        if doc_id == "it_helpdesk_faq":
-            if not fixed_text.lower().startswith("it faq:"):
-                fixed_text = "IT FAQ: " + fixed_text
+        # if doc_id == "it_helpdesk_faq":
+        #     if not fixed_text.lower().startswith("it faq:"):
+        #         fixed_text = "IT FAQ: " + fixed_text
 
         # --- QUALITY QUARANTINE PHASE ---
         

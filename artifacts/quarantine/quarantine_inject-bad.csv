@@ -6,6 +6,6 @@ chunk_id,doc_id,chunk_text,effective_date,exported_at,reason,cleaned_text,effect
 9,legacy_catalog_xyz_zzz,Chunk nội dung đủ dài để vượt ngưỡng expectation độ dài tối thiểu trong cleaned export.,2026-02-01,2026-04-10T08:00:00,unknown_doc_id,,,
 13,,Nội dung hợp lệ nhưng thiếu doc_id.,2026-02-01,2026-04-10T08:00:00,unknown_doc_id,,,
 14,policy_refund_v4,Nội dung hợp lệ nhưng sai định dạng ngày.,2026/13/99,2026-04-10T08:00:00,invalid_effective_date_format,,,2026/13/99
-15,it_helpdesk_faq,TODO: Cần bổ sung thêm quy trình backup dữ liệu.,2026-02-01,2026-04-10T08:00:00,suspicious_placeholders_detected,IT FAQ: TODO: Cần bổ sung thêm quy trình backup dữ liệu.,,
+15,it_helpdesk_faq,TODO: Cần bổ sung thêm quy trình backup dữ liệu.,2026-02-01,2026-04-10T08:00:00,suspicious_placeholders_detected,TODO: Cần bổ sung thêm quy trình backup dữ liệu.,,
 16,hr_leave_policy,Ngắn.,2026-02-01,2026-04-10T08:00:00,text_too_short,Ngắn.,,
 20,it_helpdesk_faq,,2026-02-01,2026-04-10T08:00:00,missing_chunk_text,,,
