@@ -196,7 +196,7 @@ Các biện pháp ngăn chặn tái diễn:
    - `expectation[sla_consistency]`: Đảm bảo tất cả rows có cùng SLA threshold
 
 2. **Alert khi freshness FAIL quá 2 lần liên tiếp**:
-   Thiết lập automation flow trong Directus: nếu 2 lần run liên tiếp có `freshness=FAIL`, gửi notification cho owner và tự động halt pipeline. Không cho phép pipeline tiếp tục ingest dữ liệu stale.
+   Thiết lập automation flow trong Directus: nếu 2 lần run liên tiếp có `freshness=FAIL`, gửi notification qua `group_report_and_runbook` alert channel cho Monitoring Owner và tự động halt pipeline. Không cho phép pipeline tiếp tục ingest dữ liệu stale.
 
 3. **Owner review khi thay đổi `data_contract.yaml`**:
    Mọi thay đổi đến data contract (thêm/bớt expectation, thay đổi threshold) yêu cầu owner review và approve trước khi merge. Đây là gate quan trọng để tránh vô tình weaken validation.
@@ -216,7 +216,7 @@ Các biện pháp phòng ngừa nên giữ nhất quán trong nhóm:
 - Giữ `contracts/data_contract.yaml`, cleaning rules, và expectation suite đồng bộ khi thêm policy/version mới.
 - Theo dõi `quarantine_records` và `hits_forbidden` như metric bắt buộc trong group report.
 - Không chỉnh tay artifact trong `artifacts/`; mọi thay đổi phải đi qua rerun pipeline để còn `run_id` và manifest.
-- Ghi rõ ownership: ai theo dõi freshness, ai duyệt quarantine, ai chịu trách nhiệm canonical source.
+- Ghi rõ ownership theo `data_contract.yaml`: Ingestion Owner (raw export), Cleaning Owner (quarantine review), Monitoring Owner (freshness/alerts), Embed Owner (Chroma index).
 
 ---
 
