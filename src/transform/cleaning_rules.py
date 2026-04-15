@@ -10,8 +10,23 @@ from __future__ import annotations
 import csv
 import hashlib
 import re
+import os
+import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+CONTRACT_PATH = Path(__file__).resolve().parent.parent.parent / "contracts" / "data_contract.yaml"
+
+def get_hr_cutoff() -> str:
+    try:
+        with CONTRACT_PATH.open("r", encoding="utf-8") as f:
+            contract = yaml.safe_load(f)
+            # Fetch from section policy_versioning
+            if contract and "policy_versioning" in contract:
+                return contract["policy_versioning"].get("hr_leave_min_effective_date", "2026-01-01")
+    except Exception:
+        pass
+    return os.environ.get("HR_MIN_DATE", "2026-01-01")
 
 # Khớp export hợp lệ trong lab (mở rộng khi nhóm thêm doc mới — phải đồng bộ contract).
 ALLOWED_DOC_IDS = frozenset(
@@ -83,6 +98,8 @@ def clean_rows(
     cleaned: List[Dict[str, Any]] = []
     seq = 0
 
+    hr_cutoff = get_hr_cutoff()
+
     for raw in rows:
         doc_id = raw.get("doc_id", "")
         text = raw.get("chunk_text", "")
@@ -101,12 +118,13 @@ def clean_rows(
             quarantine.append({**raw, "reason": eff_err, "effective_date_raw": eff_raw})
             continue
 
-        if doc_id == "hr_leave_policy" and eff_norm < "2026-01-01":
+        if doc_id == "hr_leave_policy" and eff_norm < hr_cutoff:
             quarantine.append(
                 {
                     **raw,
                     "reason": "stale_hr_policy_effective_date",
                     "effective_date_normalized": eff_norm,
+                    "cutoff_applied": hr_cutoff,
                 }
             )
             continue
@@ -115,6 +133,11 @@ def clean_rows(
             quarantine.append({**raw, "reason": "missing_chunk_text"})
             continue
 
+        # Rule 1: Lọc junk/placeholders
+        if text.upper() in ["N/A", "NULL", "UNDEFINED"]:
+            quarantine.append({**raw, "reason": "meaningless_placeholder"})
+            continue
+            
         key = _norm_text(text)
         if key in seen_text:
             quarantine.append({**raw, "reason": "duplicate_chunk_text"})
@@ -122,6 +145,17 @@ def clean_rows(
         seen_text.add(key)
 
         fixed_text = text
+        
+        # Rule 2: Xóa ký tự rác (BOM, replacement char)
+        if "\ufeff" in fixed_text or "\ufffd" in fixed_text:
+            fixed_text = fixed_text.replace("\ufeff", "").replace("\ufffd", "")
+            fixed_text += " [cleaned: removed_garbage_chars]"
+            
+        # Rule 3: Chunk quá ngắn (nhỏ hơn 15 ký tự thường không mang lại đủ context/semantic)
+        if len(fixed_text.strip()) < 15:
+            quarantine.append({**raw, "reason": "chunk_too_short"})
+            continue
+
         if apply_refund_window_fix and doc_id == "policy_refund_v4":
             if "14 ngày làm việc" in fixed_text:
                 fixed_text = fixed_text.replace(
@@ -174,3 +208,33 @@ def write_quarantine_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         w.writeheader()
         for r in rows:
             w.writerow(r)
+
+if __name__ == "__main__":
+    print("--- TESTING CLEANING RULES ---")
+    test_rows: List[Dict[str, str]] = [
+        # Normal row
+        {"doc_id": "it_helpdesk_faq", "chunk_text": "Tài liệu hướng dẫn về quy trình reset password.", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
+        # Rule 1: Meaningless placeholder
+        {"doc_id": "it_helpdesk_faq", "chunk_text": "N/A", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
+        # Rule 2: Garbage chars (Replacement \ufffd)
+        {"doc_id": "sla_p1_2026", "chunk_text": "SLA cho ticket P1 được xử lý trong vòng 15 phút. \ufffd", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
+        # Rule 3: Too short
+        {"doc_id": "policy_refund_v4", "chunk_text": "Cực kì ngắn", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
+        # Baseline Rules (Stale Refund)
+        {"doc_id": "policy_refund_v4", "chunk_text": "Quy định cũ: Khách được hoàn trả lại sau 14 ngày làm việc kể từ lúc hủy.", "effective_date": "2026-05-01", "exported_at": "2026-05-01T08:00:00Z"},
+        {"doc_id": "hr_leave_policy", "chunk_text": "Nhân viên dưới 3 năm nhận 10 ngày phép năm.", "effective_date": "2025-12-31", "exported_at": "2026-05-01T08:00:00Z"},
+    ]
+
+    cleaned, quarantine = clean_rows(test_rows)
+
+    print(f"\n=> Total input rows: {len(test_rows)}")
+    
+    print("\n--- CLEANED ---")
+    for idx, c in enumerate(cleaned, 1):
+        print(f"{idx}. [{c['doc_id']}] {c['chunk_text']}")
+
+    print("\n--- QUARANTINE ---")
+    for idx, q in enumerate(quarantine, 1):
+        print(f"{idx}. [{q['reason']}] {q['chunk_text']}")
+
+
