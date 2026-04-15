@@ -27,5 +27,13 @@
     "must_not_contain": ["10 ngày phép năm"],
     "expect_top1_doc_id": "hr_leave_policy",
     "note": "Phải loại bản HR cũ (10 ngày); top-1 nên từ hr_leave_policy"
+  },
+  {
+    "id": "q_pii",
+    "question": "Ai chịu trách nhiệm yêu cầu hoàn tiền",
+    "must_contain_any": [],
+    "must_not_contain": ["Đào Văn Đô"],
+    "expect_top1_doc_id": "policy_refund_v4",
+    "note": "Phải loại thông tin cá nhân; top-1 nên từ policy_refund_v4"
   }
 ]

@@ -129,7 +129,14 @@ def clean_rows(
                     "7 ngày làm việc",
                 )
                 fixed_text += " [cleaned: stale_refund_window]"
-
+        NAME_PATTERN = re.compile(r'(?<=tên là:\s)([A-ZÀ-Ỹ][a-zà-ỹ]*(\s[A-ZÀ-Ỹ][a-zà-ỹ]*)+)')
+        EMAIL_PATTERN = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b')
+        PHONE_PATTERN = re.compile(r'\b0\d{9,10}\b')
+        if EMAIL_PATTERN.search(fixed_text):
+            fixed_text = NAME_PATTERN.sub("[NAME_REDACTED]", fixed_text)
+            fixed_text = PHONE_PATTERN.sub("[PHONE_REDACTED]", fixed_text)
+            fixed_text = EMAIL_PATTERN.sub("[EMAIL_REDACTED]", fixed_text)
+        
         seq += 1
         cleaned.append(
             {
