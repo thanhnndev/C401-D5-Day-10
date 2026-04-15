@@ -1,0 +1,19 @@
+run_id=clean-after-bad
+raw_records=10
+cleaned_records=6
+quarantine_records=4
+cleaned_csv=artifacts\cleaned\cleaned_clean-after-bad.csv
+quarantine_csv=artifacts\quarantine\quarantine_clean-after-bad.csv
+expectation[min_one_row] OK (halt) :: cleaned_rows=6
+expectation[no_empty_doc_id] OK (halt) :: empty_doc_id_count=0
+expectation[refund_no_stale_14d_window] OK (halt) :: violations=0
+expectation[chunk_min_length_8] OK (warn) :: short_chunks=0
+expectation[effective_date_iso_yyyy_mm_dd] OK (halt) :: non_iso_rows=0
+expectation[hr_leave_no_stale_10d_annual] OK (halt) :: violations=0
+expectation[no_bom_in_chunk_text] OK (warn) :: bom_chunks=0
+expectation[no_duplicate_chunks] OK (warn) :: duplicate_chunk_ids=[]
+expectation[chunk_max_length_2000] OK (warn) :: oversized_chunks=0
+expectation[no_residual_html_tags] OK (warn) :: dirty_html_chunks=0
+expectation[core_documents_present] OK (halt) :: missing_docs=[]
+expectation[critical_facts_intact] FAIL (halt) :: failed_facts=["Missing pattern '\\b4\\s*giờ' in doc: sla_p1_2026", "Missing pattern '\\b10\\s*phút' in doc: sla_p1_2026", "Missing pattern '\\b30\\s*phút' in doc: sla_p1_2026", "Missing pattern '\\b1\\s*ngày' in doc: sla_p1_2026", "Missing pattern '\\b90\\s*phút' in doc: sla_p1_2026", "Missing pattern '\\b5\\s*ngày' in doc: sla_p1_2026", "Missing pattern '\\b3\\s*ngày' in doc: sla_p1_2026", "Missing pattern '\\b2\\s*-\\s*4\\s*tuần' in doc: sla_p1_2026", "Missing pattern '\\b24\\s*giờ' in doc: sla_p1_2026", "Missing pattern '\\b12\\s*ngày/năm' in doc: hr_leave_policy", "Missing pattern '\\b15\\s*ngày/năm' in doc: hr_leave_policy", "Missing pattern '\\b18\\s*ngày/năm' in doc: hr_leave_policy", "Missing pattern '\\b10\\s*ngày/năm' in doc: hr_leave_policy", "Missing pattern '\\b3\\s*ngày' in doc: hr_leave_policy", "Missing pattern '\\b5\\s*ngày' in doc: hr_leave_policy", "Missing pattern '\\b6\\s*tháng' in doc: hr_leave_policy", "Missing pattern '\\b1\\s*tiếng/ngày' in doc: hr_leave_policy", "Missing pattern '\\b12\\s*tháng' in doc: hr_leave_policy", "Missing pattern '\\b150\\s*%' in doc: hr_leave_policy", "Missing pattern '\\b200\\s*%' in doc: hr_leave_policy", "Missing pattern '\\b300\\s*%' in doc: hr_leave_policy", "Missing pattern '\\b2\\s*ngày/tuần' in doc: hr_leave_policy", "Missing pattern '\\b5\\s*phút' in doc: it_helpdesk_faq", "Missing pattern '\\b90\\s*ngày' in doc: it_helpdesk_faq", "Missing pattern '\\b7\\s*ngày' in doc: it_helpdesk_faq", "Missing pattern '\\b30\\s*ngày' in doc: it_helpdesk_faq", "Missing pattern '\\b2\\s*thiết\\ bị' in doc: it_helpdesk_faq", "Missing pattern '\\b50\\s*GB' in doc: it_helpdesk_faq", "Missing pattern '\\b1\\s*ngày' in doc: policy_refund_v4", "Missing pattern '\\b3\\s*-\\s*5\\s*ngày' in doc: policy_refund_v4", "Missing pattern '\\b100\\s*%' in doc: policy_refund_v4", "Missing pattern '\\b110\\s*%' in doc: policy_refund_v4"]
+PIPELINE_HALT: expectation suite failed (halt).
