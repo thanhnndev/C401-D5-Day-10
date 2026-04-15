@@ -3,7 +3,7 @@
 
 version: "1.0"
 dataset: "kb_chunk_export"
-owner_team: "__TODO__"
+owner_team: "Day10 Monitoring and Data Quality"
 
 schema_cleaned:
   chunk_id:
@@ -36,7 +36,45 @@ quality_rules:
 freshness:
   measured_at: "publish"  # ingest | cleaned | publish
   sla_hours: 24
-  alert_channel: "__TODO__"
+  alert_channel: "group_report_and_runbook"
+
+source_map:
+  - name: "raw_policy_export"
+    path: "data/raw/policy_export_dirty.csv"
+    ingest_method: "etl_pipeline.py run"
+    failure_modes:
+      - "duplicate_record"
+      - "unknown_doc_id"
+      - "invalid_effective_date"
+      - "stale_refund_window"
+      - "old_hr_leave_version"
+    metrics:
+      - "raw_records"
+      - "cleaned_records"
+      - "quarantine_records"
+  - name: "canonical_docs"
+    path: "data/docs/*.txt"
+    ingest_method: "referenced_during_clean_and_embed"
+    failure_modes:
+      - "policy_version_mismatch"
+      - "stale_chunk_in_index"
+      - "raw_export_vs_canonical_mismatch"
+    metrics:
+      - "contains_expected"
+      - "hits_forbidden"
+      - "top1_doc_expected"
+      - "embed_prune_removed"
+  - name: "publish_manifest"
+    path: "artifacts/manifests/manifest_<run-id>.json"
+    ingest_method: "generated_after_pipeline_run"
+    failure_modes:
+      - "missing_latest_exported_at"
+      - "invalid_timestamp"
+      - "freshness_sla_exceeded"
+    metrics:
+      - "freshness_check"
+      - "age_hours"
+      - "sla_hours"
 
 canonical_sources:
   - path: "data/docs/policy_refund_v4.txt"
@@ -58,3 +96,21 @@ allowed_doc_ids:
 # Merit/Distinction: có thể đưa cutoff versioning vào env và tham chiếu ở đây (tránh hard-code trong code).
 policy_versioning:
   hr_leave_min_effective_date: "2026-01-01"
+
+quarantine_policy:
+  quarantine_when:
+    - "doc_id_not_in_allowlist"
+    - "effective_date_not_normalized"
+    - "record_is_old_hr_version"
+    - "record_fails_publish_condition"
+  drop_from_index_when:
+    - "chunk_id_not_present_in_current_cleaned_snapshot"
+  restore_rule:
+    - "do_not_edit_artifacts_manually"
+    - "rerun_pipeline_to_restore_cleaned_and_manifest"
+
+ownership:
+  raw_export_owner: "Ingestion Owner"
+  cleaning_owner: "Cleaning Owner"
+  monitoring_owner: "Monitoring Owner"
+  embed_owner: "Embed Owner"
