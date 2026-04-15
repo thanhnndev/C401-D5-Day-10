@@ -124,16 +124,94 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
         )
     )
 
-    # E8: Dừng pipeline nếu có doc_id trùng nhau (mỗi doc_id chỉ nên xuất hiện 1 lần sau clean)
-    doc_ids = [r.get('doc_id') for r in cleaned_rows]
-    duplicate_doc_ids = set([x for x in doc_ids if doc_ids.count(x) > 1])
-    ok8 = len(duplicate_doc_ids) == 0
+    # E8_V2: Không được có các chunk bị trùng lặp hoàn toàn nội dung trong cùng một doc_id
+    seen = set()
+    duplicates = []
+    for r in cleaned_rows:
+        signature = f"{r.get('doc_id', '')}:::{r.get('chunk_text', '')}"
+        if signature in seen:
+            duplicates.append(r.get('chunk_id'))
+        else:
+            seen.add(signature)
+            
+    ok8 = len(duplicates) == 0
     results.append(
         ExpectationResult(
-            "no_duplicate_doc_id",
+            "no_duplicate_chunks",
             ok8,
+            "warn",
+            f"duplicate_chunk_ids={duplicates}",
+        )
+    )
+
+    # E9: chunk_text không vượt quá giới hạn token (ví dụ 2000 ký tự)
+    MAX_CHUNK_LENGTH = 2000
+    oversized = [r for r in cleaned_rows if len(r.get("chunk_text") or "") > MAX_CHUNK_LENGTH]
+    ok9 = len(oversized) == 0
+    results.append(
+        ExpectationResult(
+            "chunk_max_length_2000",
+            ok9,
+            "warn",
+            f"oversized_chunks={len(oversized)}",
+        )
+    )
+
+    # E10: Không chứa HTML tags rác sót lại sau khi clean
+    html_leaks = [
+        r for r in cleaned_rows 
+        if re.search(r"<\/?[a-z][\s\S]*>", (r.get("chunk_text") or ""), re.IGNORECASE)
+    ]
+    ok10 = len(html_leaks) == 0
+    results.append(
+        ExpectationResult(
+            "no_residual_html_tags",
+            ok10,
+            "warn",
+            f"dirty_html_chunks={len(html_leaks)}",
+        )
+    )
+
+    # E11: Đảm bảo các tài liệu cốt lõi (Core Documents) không bị drop hoàn toàn
+    core_docs = {"policy_refund_v4", "sla_p1_2026", "it_helpdesk_faq", "hr_leave_policy"}
+    extracted_docs = {r.get("doc_id") for r in cleaned_rows}
+    missing_docs = core_docs - extracted_docs
+    ok11 = len(missing_docs) == 0
+    results.append(
+        ExpectationResult(
+            "core_documents_present",
+            ok11,
             "halt",
-            f"duplicate_doc_ids={list(duplicate_doc_ids)}",
+            f"missing_docs={list(missing_docs)}",
+        )
+    )
+
+    # E12: Đảm bảo các facts quan trọng không bị mất mát trong quá trình chunking
+    sla_chunks = [r for r in cleaned_rows if r.get("doc_id") == "sla_p1_2026"]
+    has_15_mins = any("15 phút" in (r.get("chunk_text") or "").lower() for r in sla_chunks)
+    
+    faq_chunks = [r for r in cleaned_rows if r.get("doc_id") == "it_helpdesk_faq"]
+    has_5_fails = any("5 lần" in (r.get("chunk_text") or "").lower() for r in faq_chunks)
+    
+    leave_chunks = [r for r in cleaned_rows if r.get("doc_id") == "hr_leave_policy"]
+    has_12_days = any("12 ngày" in (r.get("chunk_text") or "").lower() for r in leave_chunks)
+
+    failed_facts = []
+    # Chỉ cảnh báo fact mất nếu document đó có tồn tại
+    if sla_chunks and not has_15_mins:
+        failed_facts.append("Missing '15 phút' in sla_p1_2026")
+    if faq_chunks and not has_5_fails:
+        failed_facts.append("Missing '5 lần' in it_helpdesk_faq")
+    if leave_chunks and not has_12_days:
+        failed_facts.append("Missing '12 ngày' in hr_leave_policy")
+        
+    ok12 = len(failed_facts) == 0
+    results.append(
+        ExpectationResult(
+            "critical_facts_intact",
+            ok12,
+            "halt",
+            f"failed_facts={failed_facts}",
         )
     )
 
